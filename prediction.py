@@ -1,35 +1,38 @@
-import pandas as pd
 import numpy as np
-import joblib
-from datetime import datetime, timedelta
-from news_processing import preprocess_news
-from data_preprocessing import prepare_data_for_prediction
+import pandas as pd
+from keras.models import load_model
+from sklearn.preprocessing import MinMaxScaler
 
-def predict_stock_price(stock_symbol, news_sources):
-    # Load the trained model and scaler objects
-    model = joblib.load('trained_model.pkl')
-    scaler = joblib.load('scaler.pkl')
+def predict_stock_price(model_file, news_data_file, stock_data_file):
+    # Load the saved model
+    model = load_model(model_file)
 
-    # Get the latest news articles for the given stock symbol
-    news_df = preprocess_news(stock_symbol, news_sources)
+    # Load the news data
+    news_data = pd.read_csv(news_data_file)
+
+    # Load the stock data
+    stock_data = pd.read_csv(stock_data_file)
+
+    # Merge the news data and stock data
+    merged_data = pd.merge(news_data, stock_data, on=['date', 'symbol'])
+
+    # Scale the features
+    scaler = MinMaxScaler()
+    merged_data['positive_sentiment'] = scaler.fit_transform(merged_data['positive_sentiment'].values.reshape(-1, 1))
+    merged_data['negative_sentiment'] = scaler.fit_transform(merged_data['negative_sentiment'].values.reshape(-1, 1))
+    merged_data['open'] = scaler.fit_transform(merged_data['open'].values.reshape(-1, 1))
+    merged_data['high'] = scaler.fit_transform(merged_data['high'].values.reshape(-1, 1))
+    merged_data['low'] = scaler.fit_transform(merged_data['low'].values.reshape(-1, 1))
+    merged_data['close'] = scaler.fit_transform(merged_data['close'].values.reshape(-1, 1))
+    merged_data['volume'] = scaler.fit_transform(merged_data['volume'].values.reshape(-1, 1))
 
     # Prepare the data for prediction
-    X_pred = prepare_data_for_prediction(news_df, scaler)
+    X_test = merged_data.drop(['date', 'symbol', 'next_day_close'], axis=1).values
+    X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
 
-    # Predict the future stock prices
-    future_dates = [datetime.now().date() + timedelta(days=i) for i in range(1, 8)]
-    future_dates = pd.DataFrame(future_dates, columns=['Date'])
-    future_dates['Symbol'] = stock_symbol
-    X_pred = pd.concat([X_pred, future_dates], axis=0)
-    X_pred.reset_index(inplace=True, drop=True)
+    # Predict the next day's closing stock price
+    y_pred = model.predict(X_test)
+    y_pred = scaler.inverse_transform(y_pred.reshape(-1, 1))
 
-    X_pred['Year'] = X_pred['Date'].apply(lambda x: x.year)
-    X_pred['Month'] = X_pred['Date'].apply(lambda x: x.month)
-    X_pred['Day'] = X_pred['Date'].apply(lambda x: x.day)
-
-    X_pred = X_pred.drop('Date', axis=1)
-
-    y_pred = model.predict(X_pred)
-
-    # Return the predicted stock prices
-    return y_pred[-7:]
+    # Return the predicted stock price
+    return y_pred[-1][0]
