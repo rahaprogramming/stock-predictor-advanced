@@ -1,6 +1,6 @@
 # stock-predictor-advanced
 
-This code is currently under construction - It's one of my side-projects,but you can contribute if you're interested. Feel free to download the project and run it. You can call the predict_stock_price() function and pass in the filenames for the saved model, the news data, and the historical stock data:
+This code is currently under construction - It's one of my side-projects, but you can contribute if you're interested. Feel free to download the project and run it. You can call the predict_stock_price() function and pass in the filenames for the saved model, the news data, and the historical stock data:
 
 python
 <br/>
